@@ -86,25 +86,23 @@ git clone https://<GITHUB_TOKEN>@github.com/Saycastic/grant-scout.git
 
 ## Шаг 5 — Создание .env
 
+В `.env` обязательны только два параметра — LLM Grant Scout определяет сам:
+
 ```bash
 cat > /root/grant-scout/.env << EOF
 TELEGRAM_BOT_TOKEN=<вставить токен из шага 1>
 TELEGRAM_CHAT_ID=<вставить chat id из шага 2>
-LLM_PROVIDER=openclaw
-OPENCLAW_BIN=openclaw
 EOF
 ```
 
-Если openclaw недоступен на сервере — используй Anthropic fallback:
-```bash
-cat > /root/grant-scout/.env << EOF
-TELEGRAM_BOT_TOKEN=<токен>
-TELEGRAM_CHAT_ID=<chat_id>
-LLM_PROVIDER=anthropic
-LLM_API_KEY=<anthropic_api_key>
-LLM_MODEL=claude-haiku-4-5
-EOF
-```
+**Как Grant Scout выбирает LLM (автоматически, в порядке приоритета):**
+
+1. `LLM_PROVIDER=openclaw` в `.env` → использует openclaw CLI
+2. `LLM_API_KEY=...` в `.env` → прямой вызов Anthropic/OpenAI
+3. **EXME / Agent Manager** → если на сервере есть `~/.agent-manager/.env` с ключами — подхватывает автоматически, включая gateway URL. Ничего дополнительно настраивать не нужно.
+4. openclaw найден в PATH → использует его
+
+Таким образом: если клиент на EXME — просто создаём `.env` с Telegram-данными и всё работает. Если на OpenClaw — тоже работает. Если ни то ни другое — нужен явный `LLM_API_KEY`.
 
 ---
 
@@ -193,11 +191,13 @@ PYTHONPATH не задан. Всегда запускай с префиксом:
 cd /root/grant-scout && PYTHONPATH=. .venv/bin/python3 ...
 ```
 
-### `openclaw: No such file or directory`
-openclaw не установлен или не в PATH. Переключи на Anthropic в `.env`:
+### `openclaw: No such file or directory` / LLM errors
+Grant Scout сам пробует найти LLM: сначала openclaw, потом EXME/Agent Manager ключи в `~/.agent-manager/.env`, потом явный `LLM_API_KEY` в `.env`.
+
+Если всё равно ошибка — добавь в `.env`:
 ```
-LLM_PROVIDER=anthropic
 LLM_API_KEY=sk-ant-...
+LLM_PROVIDER=anthropic
 ```
 
 ### `Failed to connect to bus` (systemd)

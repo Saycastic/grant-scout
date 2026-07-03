@@ -55,29 +55,95 @@ GRANT_SCHEMA_EXAMPLE = {
 }
 
 
+def _detect_llm_config() -> dict:
+    """
+    Автоматически определяет доступный LLM backend.
+    Приоритет:
+    1. Явный LLM_PROVIDER=openclaw в .env
+    2. Явный LLM_API_KEY в .env
+    3. EXME / Agent Manager — ключи в ~/.agent-manager/.env
+    4. OpenClaw — если бинарник найден в PATH
+    """
+    provider = os.environ.get("LLM_PROVIDER", "").lower()
+    api_key = os.environ.get("LLM_API_KEY", "")
+    model = os.environ.get("LLM_MODEL", "claude-haiku-4-5")
+
+    # 1. Явно задан openclaw
+    if provider == "openclaw":
+        return {"backend": "openclaw"}
+
+    # 2. Явно задан API-ключ в .env
+    if api_key and provider in ("anthropic", "openai", ""):
+        return {
+            "backend": provider or "anthropic",
+            "api_key": api_key,
+            "model": model,
+        }
+
+    # 3. EXME / Agent Manager — ищем ключи в ~/.agent-manager/.env
+    agent_manager_env = os.path.expanduser("~/.agent-manager/.env")
+    if os.path.exists(agent_manager_env):
+        exme_vars = {}
+        for line in open(agent_manager_env).read().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                exme_vars[k.strip()] = v.strip()
+
+        # EXME использует Anthropic через свой gateway
+        if exme_vars.get("ANTHROPIC_API_KEY"):
+            cfg = {
+                "backend": "anthropic",
+                "api_key": exme_vars["ANTHROPIC_API_KEY"],
+                "model": model,
+            }
+            # Подставляем base_url если есть (EXME gateway)
+            if exme_vars.get("ANTHROPIC_BASE_URL"):
+                cfg["base_url"] = exme_vars["ANTHROPIC_BASE_URL"]
+            return cfg
+
+        if exme_vars.get("OPENAI_API_KEY"):
+            cfg = {
+                "backend": "openai",
+                "api_key": exme_vars["OPENAI_API_KEY"],
+                "model": os.environ.get("LLM_MODEL", "gpt-4o-mini"),
+            }
+            if exme_vars.get("STT_OPENAI_BASE_URL") or exme_vars.get("OPENAI_BASE_URL"):
+                cfg["base_url"] = exme_vars.get("STT_OPENAI_BASE_URL") or exme_vars.get("OPENAI_BASE_URL")
+            return cfg
+
+    # 4. Openclaw — если найден в PATH
+    import shutil
+    openclaw_bin = os.environ.get("OPENCLAW_BIN", "openclaw")
+    if shutil.which(openclaw_bin):
+        return {"backend": "openclaw", "bin": openclaw_bin}
+
+    raise RuntimeError(
+        "Не найден ни один LLM backend. Задай LLM_API_KEY в .env "
+        "или установи openclaw, или используй EXME Agent Manager."
+    )
+
+
 def call_llm(text: str, source_url: str) -> list[dict]:
     """
     Отправляет текст на нормализацию.
-    По умолчанию — через OpenClaw agent CLI (не нужен отдельный API-ключ).
-    Fallback — прямой вызов Anthropic/OpenAI если LLM_API_KEY задан.
+    Автоматически определяет доступный LLM backend:
+    openclaw CLI → LLM_API_KEY в .env → EXME/Agent Manager → openclaw в PATH.
     """
-    api_key = os.environ.get("LLM_API_KEY", "")
+    cfg = _detect_llm_config()
     user_msg = f"URL источника: {source_url}\n\n---\n\n{text[:12000]}"
 
-    if api_key:
-        # Прямой вызов если ключ есть
-        provider = os.environ.get("LLM_PROVIDER", "anthropic")
-        model = os.environ.get("LLM_MODEL", "claude-haiku-4-5")
-        if provider == "anthropic":
-            return _call_anthropic(api_key, model, user_msg)
-        else:
-            return _call_openai(api_key, model, user_msg)
+    if cfg["backend"] == "openclaw":
+        return _call_openclaw(user_msg, cfg.get("bin", "openclaw"))
+    elif cfg["backend"] == "anthropic":
+        return _call_anthropic(cfg["api_key"], cfg["model"], user_msg, cfg.get("base_url"))
+    elif cfg["backend"] == "openai":
+        return _call_openai(cfg["api_key"], cfg["model"], user_msg, cfg.get("base_url"))
     else:
-        # Через OpenClaw agent — никакого отдельного ключа не нужно
-        return _call_openclaw(user_msg)
+        raise RuntimeError(f"Неизвестный LLM backend: {cfg['backend']}")
 
 
-def _call_openclaw(user_msg: str) -> list[dict]:
+def _call_openclaw(user_msg: str, openclaw_bin: str = "openclaw") -> list[dict]:
     """
     Вызывает openclaw agent CLI, получает JSON в ответе.
     OpenClaw сам использует настроенного агента с его моделью.
@@ -86,8 +152,6 @@ def _call_openclaw(user_msg: str) -> list[dict]:
     import shlex
 
     full_prompt = SYSTEM_PROMPT + "\n\n" + user_msg
-
-    openclaw_bin = os.environ.get("OPENCLAW_BIN", "openclaw")
 
     result = subprocess.run(
         [openclaw_bin, "agent", "--message", full_prompt, "--no-stream"],
@@ -103,10 +167,14 @@ def _call_openclaw(user_msg: str) -> list[dict]:
     return _parse_json(raw)
 
 
-def _call_anthropic(api_key: str, model: str, user_msg: str) -> list[dict]:
+def _call_anthropic(api_key: str, model: str, user_msg: str, base_url: str = None) -> list[dict]:
     import anthropic
 
-    client = anthropic.Anthropic(api_key=api_key)
+    kwargs = {"api_key": api_key}
+    if base_url:
+        kwargs["base_url"] = base_url
+
+    client = anthropic.Anthropic(**kwargs)
     response = client.messages.create(
         model=model,
         max_tokens=4096,
@@ -117,10 +185,14 @@ def _call_anthropic(api_key: str, model: str, user_msg: str) -> list[dict]:
     return _parse_json(raw)
 
 
-def _call_openai(api_key: str, model: str, user_msg: str) -> list[dict]:
+def _call_openai(api_key: str, model: str, user_msg: str, base_url: str = None) -> list[dict]:
     import openai
 
-    client = openai.OpenAI(api_key=api_key)
+    kwargs = {"api_key": api_key}
+    if base_url:
+        kwargs["base_url"] = base_url
+
+    client = openai.OpenAI(**kwargs)
     response = client.chat.completions.create(
         model=model,
         messages=[
