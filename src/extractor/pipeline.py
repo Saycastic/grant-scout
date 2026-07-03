@@ -58,7 +58,7 @@ def process_page(page_id: int, source_url: str, clean_text: str) -> dict:
                 "fashion design", "textile design",
                 "illustration contest", "book illustration",
             ]
-            combined_text = f"{title} {g.get('summary_ru', '')} {g.get('why_relevant_ru', '')}".lower()
+            combined_text = f"{title} {g.get('summary', '')} {g.get('why_relevant', '')}".lower()
             if any(kw in combined_text for kw in DISCIPLINE_REJECT_KEYWORDS):
                 print(f"[extractor] REJECT (keyword filter): {title}")
                 stats["skipped"] += 1
@@ -117,8 +117,8 @@ def process_page(page_id: int, source_url: str, clean_text: str) -> dict:
                 g.get("open_to_international_applicants"),
                 url,
                 source_url,
-                g.get("summary_ru", ""),
-                g.get("why_relevant_ru", ""),
+                g.get("summary") or g.get("summary_ru", ""),
+                g.get("why_relevant") or g.get("why_relevant_ru", ""),
                 g.get("opportunity_quality", "medium"),
                 float(g.get("confidence", 0.5)),
             )).lastrowid
