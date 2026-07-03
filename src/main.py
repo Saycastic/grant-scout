@@ -5,7 +5,6 @@ Main Scheduler — запускает crawler → extractor → delivery по р
 
 import os
 import time
-import threading
 import schedule
 from datetime import datetime
 
@@ -14,7 +13,6 @@ from src.extractor.pipeline import run_extractor
 from src.extractor.cost_guard import get_today_stats
 from src.delivery.telegram import send_digest
 from src.delivery.admin_report import send_run_report
-from src.delivery.feedback import run_polling
 
 
 def run_pipeline(frequency: str):
@@ -59,11 +57,7 @@ def main():
 
     print(f"[main] Grant Scout starting...")
     print(f"[main] Digest: {digest_day} at {digest_time}")
-
-    # Feedback polling в отдельном потоке
-    feedback_thread = threading.Thread(target=run_polling, daemon=True)
-    feedback_thread.start()
-    print("[main] Feedback polling started")
+    print(f"[main] Send-only mode — no polling (won't conflict with other bots)")
 
     # Ежедневный краулинг (агрегаторы)
     schedule.every().day.at("06:00").do(run_pipeline, frequency="daily")

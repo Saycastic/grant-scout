@@ -22,7 +22,6 @@ if _env_path.exists():
 import time
 
 from src.database.db import get_conn
-from src.delivery.feedback import send_with_feedback
 
 
 def _bot_token() -> str:
@@ -238,8 +237,8 @@ def send_digest(digest_type: str = "new", days_window: int = 14) -> int:
         msg_text = format_opportunity(opp)
         opp_id = opp["id"]
 
-        # Отправляем с feedback кнопками
-        msg_id = send_with_feedback(_chat_id(), msg_text, opp_id)
+        # Отправляем без feedback кнопок (send-only mode)
+        msg_id = send_message(msg_text)
 
         if msg_id is None and _bot_token():
             print(f"[delivery] Failed to send opp {opp_id} — stopping")
