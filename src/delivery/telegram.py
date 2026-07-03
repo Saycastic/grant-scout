@@ -90,7 +90,7 @@ def format_opportunity(opp: dict, idx: int = 1) -> str:
 
     # Сумма
     amount = escape(opp.get("amount") or "")
-    if amount:
+    if amount and amount.lower() not in ("undisclosed", "varies", "free"):
         lines.append(f"💰 {amount}")
 
     # Дедлайн

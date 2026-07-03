@@ -64,6 +64,10 @@ def validate_grant(g: dict, source_url: str) -> dict:
     if not str(g["url"]).startswith(("http://", "https://")):
         g["url"] = source_url
 
+    # Чистим мусорные значения amount
+    if g.get("amount") and str(g["amount"]).strip().upper() in ("FREE", "N/A", "-", ""):
+        g["amount"] = "undisclosed"
+
     # deadline_type
     valid_types = ("fixed", "rolling", "recurring", "tba", "closed", "unknown")
     if g.get("deadline_type") not in valid_types:
