@@ -123,6 +123,14 @@ def process_page(page_id: int, source_id: str, source_url: str, clean_text: str)
                 stats["skipped"] += 1
                 continue
 
+            # Постфильтр по дате — если дедлайн прошёл, выбрасываем
+            if deadline:
+                today = datetime.utcnow().date().isoformat()
+                if deadline < today:
+                    print(f"[extractor] REJECT (expired {deadline}): {title}")
+                    stats["skipped"] += 1
+                    continue
+
             # Постфильтр по ключевым словам дисциплины
             combined_text = f"{title} {g.get('summary', '')} {g.get('why_relevant', '')}".lower()
             if any(kw in combined_text for kw in DISCIPLINE_REJECT_KEYWORDS):

@@ -56,6 +56,22 @@ def run_expiry_check():
     print(f"[main] Expiry digest sent: {count} opportunities")
 
 
+def cleanup_expired():
+    """Помечает просроченные гранты как sent=1 чтобы они не попадали в дайджест."""
+    from src.database.db import get_conn
+    today = datetime.utcnow().date().isoformat()
+    conn = get_conn()
+    result = conn.execute(
+        "UPDATE opportunities SET sent_at=? WHERE deadline < ? AND deadline IS NOT NULL AND sent_at IS NULL",
+        (today, today,)
+    )
+    count = result.rowcount
+    conn.commit()
+    conn.close()
+    if count:
+        print(f"[main] Cleanup: marked {count} expired opportunities as sent (hidden from digest)")
+
+
 def main():
     digest_time = os.environ.get("DIGEST_TIME", "09:00")
     digest_day = os.environ.get("DIGEST_DAY", "monday")
@@ -78,6 +94,9 @@ def main():
 
     # Алерт об истекающих дедлайнах — каждую пятницу
     schedule.every().friday.at("09:00").do(run_expiry_check)
+
+    # Ежедневная чистка просроченных грантов
+    schedule.every().day.at("00:30").do(cleanup_expired)
 
     # Первый прогон сразу при старте
     print("[main] Running initial pipeline...")
