@@ -5,7 +5,7 @@
 
 set -e
 
-REPO_DIR="/root/grant-scout"
+REPO_DIR="${GRANT_SCOUT_DIR:-$HOME/grant-scout}"
 SERVICE_NAME="grant-scout"
 VENV="$REPO_DIR/.venv"
 PYTHON="$VENV/bin/python3"
@@ -88,14 +88,12 @@ if systemctl --user daemon-reload 2>/dev/null; then
     cat > /tmp/grant-scout.service << EOF
 [Unit]
 Description=Grant Scout — art grants monitor
-After=network.target
-Wants=network.target
+After=network-online.target
 
 [Service]
 Type=simple
-User=$USER
 WorkingDirectory=$REPO_DIR
-EnvironmentFile=$ENV_FILE
+EnvironmentFile=$REPO_DIR/.env
 Environment=PYTHONPATH=$REPO_DIR
 ExecStart=$PYTHON src/main.py
 Restart=on-failure

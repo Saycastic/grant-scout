@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS sources (
                         'daily', 'weekly', 'monthly'
                     )),
     parser_type     TEXT NOT NULL CHECK(parser_type IN (
-                        'html', 'rss', 'api', 'pdf', 'dynamic_js'
+                        'html', 'rss', 'api', 'pdf', 'dynamic_js', 'listing'
                     )),
     trust_level     INTEGER DEFAULT 3 CHECK(trust_level BETWEEN 1 AND 5),
     requires_manual_review INTEGER DEFAULT 0,
@@ -40,7 +40,10 @@ CREATE TABLE IF NOT EXISTS raw_pages (
     raw_text        TEXT,
     crawled_at      TEXT DEFAULT (datetime('now')),
     status_code     INTEGER,
-    error           TEXT
+    error           TEXT,
+    extracted_at        TEXT,
+    extraction_status   TEXT DEFAULT 'pending',
+    extraction_error    TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_raw_pages_source ON raw_pages(source_id);

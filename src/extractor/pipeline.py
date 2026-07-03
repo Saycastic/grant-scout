@@ -1,17 +1,72 @@
 """
-Extractor Pipeline — берёт new raw_pages из БД, прогоняет через LLM, сохраняет в opportunities.
+Extractor Pipeline — берёт необработанные raw_pages из БД, прогоняет через LLM, сохраняет в opportunities.
 Запуск: python -m src.extractor.pipeline [--page-id N] [--source source_id]
 """
 
 import argparse
 import json
+import re
 from datetime import datetime
 
 from src.database.db import get_conn
 from src.extractor.llm_normalizer import call_llm, make_canonical_key
 
 
-def process_page(page_id: int, source_url: str, clean_text: str) -> dict:
+DISCIPLINE_REJECT_KEYWORDS = [
+    "photography only", "photographers only", "photo contest",
+    "graphic design", "industrial design", "product design",
+    "film festival", "screenplay", "documentary film",
+    "music composition", "composers only", "songwriting",
+    "literature", "poetry contest", "short story",
+    "architecture competition", "architectural design",
+    "fashion design", "textile design",
+    "illustration contest", "book illustration",
+]
+
+
+def validate_grant(g: dict, source_url: str) -> dict:
+    """Валидирует и нормализует поля гранта от LLM."""
+    # Алиасы полей
+    g["organization"] = g.get("organization") or g.get("funder") or g.get("org") or ""
+    g["title"] = g.get("title") or g.get("name") or g.get("grant_name") or ""
+    g["deadline"] = g.get("deadline") or g.get("deadline_date") or None
+    g["url"] = g.get("url") or g.get("website") or g.get("application_url") or source_url
+    g["summary"] = g.get("summary") or g.get("summary_ru") or ""
+    g["why_relevant"] = g.get("why_relevant") or g.get("why_relevant_ru") or ""
+
+    # deadline должен быть YYYY-MM-DD или None
+    if g["deadline"]:
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", str(g["deadline"])):
+            g["deadline_raw"] = g["deadline"]
+            g["deadline"] = None
+        else:
+            g.setdefault("deadline_raw", g["deadline"])
+    else:
+        g["deadline"] = None
+
+    # confidence: 0.0–1.0
+    try:
+        g["confidence"] = max(0.0, min(1.0, float(g.get("confidence", 0.5))))
+    except (TypeError, ValueError):
+        g["confidence"] = 0.5
+
+    # opportunity_quality
+    if g.get("opportunity_quality") not in ("high", "medium", "low", "reject"):
+        g["opportunity_quality"] = "medium"
+
+    # списки
+    for field in ("discipline", "applicant_type", "eligible_residency", "eligible_nationality"):
+        if not isinstance(g.get(field), list):
+            g[field] = []
+
+    # URL валидация
+    if not str(g["url"]).startswith(("http://", "https://")):
+        g["url"] = source_url
+
+    return g
+
+
+def process_page(page_id: int, source_id: str, source_url: str, clean_text: str) -> dict:
     """
     Прогоняет одну страницу через LLM и сохраняет результаты в БД.
     Возвращает статистику: {"processed": N, "new": N, "skipped": N, "errors": N}
@@ -23,6 +78,12 @@ def process_page(page_id: int, source_url: str, clean_text: str) -> dict:
         grants = call_llm(clean_text, source_url)
     except Exception as e:
         print(f"[extractor] LLM error for page {page_id}: {e}")
+        conn.execute(
+            "UPDATE raw_pages SET extracted_at=?, extraction_status='error', extraction_error=? WHERE id=?",
+            (datetime.utcnow().isoformat(), str(e), page_id)
+        )
+        conn.commit()
+        conn.close()
         stats["errors"] += 1
         return stats
 
@@ -31,11 +92,12 @@ def process_page(page_id: int, source_url: str, clean_text: str) -> dict:
     for g in grants:
         stats["processed"] += 1
         try:
-            # Алиасы — LLM иногда возвращает нестандартные поля
-            org = g.get("organization") or g.get("funder") or g.get("org") or ""
-            title = g.get("title") or g.get("name") or g.get("grant_name") or ""
-            deadline = g.get("deadline") or g.get("deadline_date") or ""
-            url = g.get("url") or g.get("website") or g.get("application_url") or source_url
+            g = validate_grant(g, source_url)
+
+            title = g["title"]
+            org = g["organization"]
+            deadline = g["deadline"]
+            url = g["url"]
 
             if not title:
                 stats["skipped"] += 1
@@ -47,20 +109,10 @@ def process_page(page_id: int, source_url: str, clean_text: str) -> dict:
                 stats["skipped"] += 1
                 continue
 
-            # Постфильтр: отсеиваем строго-нехудожественные дисциплины
-            DISCIPLINE_REJECT_KEYWORDS = [
-                "photography only", "photographers only", "photo contest",
-                "graphic design", "industrial design", "product design",
-                "film festival", "screenplay", "documentary film",
-                "music composition", "composers only", "songwriting",
-                "literature", "poetry contest", "short story",
-                "architecture competition", "architectural design",
-                "fashion design", "textile design",
-                "illustration contest", "book illustration",
-            ]
+            # Постфильтр по ключевым словам дисциплины
             combined_text = f"{title} {g.get('summary', '')} {g.get('why_relevant', '')}".lower()
             if any(kw in combined_text for kw in DISCIPLINE_REJECT_KEYWORDS):
-                print(f"[extractor] REJECT (keyword filter): {title}")
+                print(f"[extractor] REJECT (keyword): {title}")
                 stats["skipped"] += 1
                 continue
 
@@ -75,7 +127,6 @@ def process_page(page_id: int, source_url: str, clean_text: str) -> dict:
                 stats["skipped"] += 1
                 continue
 
-            # Вставляем новую возможность
             opp_id = conn.execute("""
                 INSERT INTO opportunities (
                     canonical_key, title, organization, grant_type,
@@ -109,7 +160,7 @@ def process_page(page_id: int, source_url: str, clean_text: str) -> dict:
                 json.dumps(g.get("eligible_nationality", []), ensure_ascii=False),
                 g.get("amount", ""),
                 g.get("currency", ""),
-                g.get("deadline"),
+                deadline,
                 g.get("deadline_raw", ""),
                 g.get("application_fee", ""),
                 int(g.get("is_paid_opportunity", False)),
@@ -117,18 +168,18 @@ def process_page(page_id: int, source_url: str, clean_text: str) -> dict:
                 g.get("open_to_international_applicants"),
                 url,
                 source_url,
-                g.get("summary") or g.get("summary_ru", ""),
-                g.get("why_relevant") or g.get("why_relevant_ru", ""),
+                g.get("summary", ""),
+                g.get("why_relevant", ""),
                 g.get("opportunity_quality", "medium"),
-                float(g.get("confidence", 0.5)),
+                g.get("confidence", 0.5),
             )).lastrowid
             conn.commit()
 
-            # Линкуем к источнику
+            # Линкуем к источнику с source_id
             conn.execute("""
-                INSERT OR IGNORE INTO opportunity_sources (opportunity_id, raw_page_id)
-                VALUES (?, ?)
-            """, (opp_id, page_id))
+                INSERT OR IGNORE INTO opportunity_sources (opportunity_id, source_id, raw_page_id)
+                VALUES (?, ?, ?)
+            """, (opp_id, source_id, page_id))
             conn.commit()
 
             stats["new"] += 1
@@ -138,13 +189,19 @@ def process_page(page_id: int, source_url: str, clean_text: str) -> dict:
             print(f"[extractor] Error saving grant '{g.get('title', '?')}': {e}")
             stats["errors"] += 1
 
+    # Помечаем страницу как обработанную
+    conn.execute(
+        "UPDATE raw_pages SET extracted_at=?, extraction_status='ok' WHERE id=?",
+        (datetime.utcnow().isoformat(), page_id)
+    )
+    conn.commit()
     conn.close()
     return stats
 
 
 def run_extractor(page_id: int = None, source_id: str = None):
     """
-    Извлекает необработанные страницы из raw_pages и прогоняет через LLM.
+    Извлекает ТОЛЬКО необработанные страницы (extracted_at IS NULL) из raw_pages.
     """
     conn = get_conn()
 
@@ -153,18 +210,23 @@ def run_extractor(page_id: int = None, source_id: str = None):
         params = [page_id]
     elif source_id:
         query = """
-            SELECT rp.id, rp.source_id, rp.url, rp.raw_text
-            FROM raw_pages rp
-            WHERE rp.source_id = ?
-            ORDER BY rp.crawled_at DESC LIMIT 10
+            SELECT id, source_id, url, raw_text
+            FROM raw_pages
+            WHERE source_id = ?
+              AND status_code = 200
+              AND raw_text IS NOT NULL
+              AND extracted_at IS NULL
+            ORDER BY crawled_at DESC LIMIT 20
         """
         params = [source_id]
     else:
-        # Все страницы — дедупликация идёт внутри process_page по canonical_key
+        # Только необработанные — ключевой фикс
         query = """
             SELECT id, source_id, url, raw_text
             FROM raw_pages
-            WHERE status_code = 200 AND raw_text IS NOT NULL
+            WHERE status_code = 200
+              AND raw_text IS NOT NULL
+              AND extracted_at IS NULL
             ORDER BY crawled_at DESC
             LIMIT 50
         """
@@ -174,23 +236,23 @@ def run_extractor(page_id: int = None, source_id: str = None):
     conn.close()
 
     if not pages:
-        print("[extractor] No pages to process.")
+        print("[extractor] No new pages to process.")
         return
 
-    print(f"[extractor] Processing {len(pages)} pages...")
+    print(f"[extractor] Processing {len(pages)} new pages...")
     total = {"processed": 0, "new": 0, "skipped": 0, "errors": 0}
 
     for page in pages:
         if not page["raw_text"]:
             continue
 
-        source = conn = get_conn()
-        src = conn.execute("SELECT url FROM sources WHERE source_id = ?",
-                           (page["source_id"],)).fetchone()
-        conn.close()
+        conn2 = get_conn()
+        src = conn2.execute("SELECT url FROM sources WHERE source_id = ?",
+                            (page["source_id"],)).fetchone()
+        conn2.close()
         source_url = src["url"] if src else page["url"]
 
-        stats = process_page(page["id"], source_url, page["raw_text"])
+        stats = process_page(page["id"], page["source_id"], source_url, page["raw_text"])
         for k in total:
             total[k] += stats[k]
 

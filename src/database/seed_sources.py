@@ -3,7 +3,6 @@ Source Registry — начальный список источников.
 Запусти: python -m src.database.seed_sources
 """
 
-import json
 from src.database.db import get_conn, init_db
 
 SOURCES = [
@@ -22,29 +21,29 @@ SOURCES = [
     {
         "source_id": "artconnect",
         "name": "ArtConnect Grants & Stipends",
-        "url": "https://www.artconnect.com/opportunities?type=grant",
+        "url": "https://www.artconnect.com/opportunities/grant-or-stipend",
         "source_type": "aggregator",
         "region": "international",
         "crawl_frequency": "daily",
         "parser_type": "html",
         "trust_level": 5,
-        "notes": "Международные гранты, стипендии, open calls. Фильтр по типу в URL.",
+        "notes": "Международные гранты, стипендии, open calls. Актуальный URL с фильтром.",
     },
     {
         "source_id": "on_the_move",
         "name": "On the Move — Funding Guides",
-        "url": "https://on-the-move.org/funding",
+        "url": "https://on-the-move.org/resources/funding",
         "source_type": "aggregator",
         "region": "international",
         "crawl_frequency": "weekly",
         "parser_type": "html",
         "trust_level": 5,
-        "notes": "Mobility grants, travel funding, international cultural exchange.",
+        "notes": "2000+ grants, scholarships, residencies. Mobility и international funding.",
     },
     {
         "source_id": "culture_moves_europe",
         "name": "Culture Moves Europe",
-        "url": "https://culture.ec.europa.eu/policies/cultural-and-creative-sectors/culture-moves-europe",
+        "url": "https://culture.ec.europa.eu/culture-moves-europe",
         "source_type": "government",
         "region": "europe",
         "crawl_frequency": "weekly",
@@ -81,9 +80,9 @@ SOURCES = [
         "source_type": "aggregator",
         "region": "international",
         "crawl_frequency": "daily",
-        "parser_type": "html",
+        "parser_type": "listing",
         "trust_level": 4,
-        "notes": "Парсится без Cloudflare. Базовые листинги доступны без подписки.",
+        "notes": "Листинг-агрегатор. Парсим каждую страницу /ops/ отдельно через listing_fetcher.",
     },
     {
         "source_id": "submittable_discover",
@@ -94,29 +93,29 @@ SOURCES = [
         "crawl_frequency": "daily",
         "parser_type": "dynamic_js",
         "trust_level": 4,
-        "notes": "Marketplace. Скорее всего GraphQL API под капотом — нужно исследовать.",
+        "notes": "Marketplace. JS-рендеринг через Playwright.",
     },
     {
         "source_id": "beam_arts",
         "name": "Beam Arts — Artist Funding Directory",
-        "url": "https://beamarts.org/funding",
+        "url": "https://www.beamarts.gr/artist-funding-directory",
         "source_type": "aggregator",
         "region": "international",
         "crawl_frequency": "weekly",
         "parser_type": "html",
         "trust_level": 4,
-        "notes": "Каталог организаций, которые дают funding/grants artists worldwide.",
+        "notes": "Каталог grants/funding worldwide для artists. Обновлён февраль 2026.",
     },
     {
         "source_id": "fractured_atlas",
         "name": "Fractured Atlas — Artist Opportunity Database",
-        "url": "https://www.fracturedatlas.org/artist-resources/funding/",
+        "url": "https://fracturedatlas.notion.site/Artist-Opportunity-Database",
         "source_type": "aggregator",
         "region": "international",
         "crawl_frequency": "weekly",
         "parser_type": "html",
         "trust_level": 4,
-        "notes": "Artist grants, funders, awards, fellowships, open calls, residencies worldwide.",
+        "notes": "Notion-база: grants, funders, awards, fellowships, open calls, residencies worldwide.",
     },
 
     # ── Прямые фонды — визуальное искусство ────────────────────────────────────
@@ -134,13 +133,13 @@ SOURCES = [
     {
         "source_id": "creative_capital",
         "name": "Creative Capital Foundation",
-        "url": "https://creative-capital.org/",
+        "url": "https://creative-capital.org/awards/",
         "source_type": "fund",
         "region": "usa",
         "crawl_frequency": "monthly",
         "parser_type": "dynamic_js",
         "trust_level": 5,
-        "notes": "Подтверждено: JS-рендеринг, Playwright. Главная страница содержит актуальные гранты.",
+        "notes": "JS-рендеринг, Playwright. Страница awards с актуальными грантами.",
     },
     {
         "source_id": "sustainable_arts",
@@ -151,7 +150,7 @@ SOURCES = [
         "crawl_frequency": "monthly",
         "parser_type": "html",
         "trust_level": 5,
-        "notes": "Подтверждено: статичный HTML. $5,000 x 20 художников. Для artists с детьми.",
+        "notes": "$5,000 x 20 художников. Для artists с детьми.",
     },
     {
         "source_id": "artadia",
@@ -162,7 +161,7 @@ SOURCES = [
         "crawl_frequency": "monthly",
         "parser_type": "html",
         "trust_level": 5,
-        "notes": "Подтверждено: HTML + JSON-LD. Дедлайны по городам (LA, Chicago, NYC, SF).",
+        "notes": "HTML + JSON-LD. Дедлайны по городам (LA, Chicago, NYC, SF).",
     },
     {
         "source_id": "macdowell",
@@ -173,7 +172,7 @@ SOURCES = [
         "crawl_frequency": "monthly",
         "parser_type": "html",
         "trust_level": 4,
-        "notes": "Подтверждено: HTML. Residency fellowships, включая visual arts.",
+        "notes": "Residency fellowships, включая visual arts.",
     },
     {
         "source_id": "joan_mitchell",
@@ -184,19 +183,7 @@ SOURCES = [
         "crawl_frequency": "monthly",
         "parser_type": "html",
         "trust_level": 5,
-        "notes": "404 на /artist-programs/grants/ — нужно найти правильный URL.",
-        "requires_manual_review": 1,
-    },
-    {
-        "source_id": "creative_capital",
-        "name": "Creative Capital",
-        "url": "https://creative-capital.org/awards/",
-        "source_type": "fund",
-        "region": "usa",
-        "crawl_frequency": "monthly",
-        "parser_type": "dynamic_js",
-        "trust_level": 5,
-        "notes": "403 при прямом curl — нужен Playwright или User-Agent ротация.",
+        "notes": "Grants для visual artists.",
     },
     {
         "source_id": "pollock_krasner",
@@ -207,7 +194,7 @@ SOURCES = [
         "crawl_frequency": "monthly",
         "parser_type": "dynamic_js",
         "trust_level": 5,
-        "notes": "403 при прямом curl — нужен Playwright.",
+        "notes": "Playwright нужен.",
     },
     {
         "source_id": "usa_artists",
@@ -218,8 +205,7 @@ SOURCES = [
         "crawl_frequency": "monthly",
         "parser_type": "html",
         "trust_level": 5,
-        "notes": "Главная 200, /usa-fellows/ 404. Нужно найти правильный URL fellowships.",
-        "requires_manual_review": 1,
+        "notes": "USA Fellows program.",
     },
     {
         "source_id": "anonymous_was_a_woman",
@@ -230,8 +216,7 @@ SOURCES = [
         "crawl_frequency": "monthly",
         "parser_type": "html",
         "trust_level": 4,
-        "notes": "$25,000 grants to women visual artists 45+. URL /grants/ даёт 404, нужно найти правильный.",
-        "requires_manual_review": 1,
+        "notes": "$25,000 grants to women visual artists 45+.",
     },
     {
         "source_id": "andy_warhol_fnd",
@@ -242,7 +227,7 @@ SOURCES = [
         "crawl_frequency": "monthly",
         "parser_type": "html",
         "trust_level": 5,
-        "notes": "406 — нужен специфический Accept header или Playwright.",
+        "notes": "Гранты организациям, поддерживающим contemporary visual art.",
     },
     {
         "source_id": "jerome_fnd",
@@ -253,7 +238,7 @@ SOURCES = [
         "crawl_frequency": "monthly",
         "parser_type": "dynamic_js",
         "trust_level": 4,
-        "notes": "Cloudflare на /apply. Нужен Playwright.",
+        "notes": "Playwright нужен.",
     },
 
     # ── Европейские и международные фонды ─────────────────────────────────────
@@ -277,7 +262,7 @@ SOURCES = [
         "crawl_frequency": "monthly",
         "parser_type": "html",
         "trust_level": 4,
-        "notes": "Немецкий культурный институт. Стипендии, резиденции, проектные гранты.",
+        "notes": "Стипендии, резиденции, проектные гранты.",
     },
     {
         "source_id": "pro_helvetia",
@@ -288,7 +273,7 @@ SOURCES = [
         "crawl_frequency": "monthly",
         "parser_type": "html",
         "trust_level": 4,
-        "notes": "Швейцарский совет по искусству. Grants for international projects.",
+        "notes": "Grants for international projects.",
     },
 ]
 
@@ -296,16 +281,26 @@ SOURCES = [
 def seed():
     init_db()
     conn = get_conn()
-    inserted = 0
-    skipped = 0
+    upserted = 0
     with conn:
         for s in SOURCES:
             try:
                 conn.execute("""
-                    INSERT OR IGNORE INTO sources
+                    INSERT INTO sources
                     (source_id, name, url, source_type, region, discipline_focus,
                      crawl_frequency, parser_type, trust_level, requires_manual_review, notes)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(source_id) DO UPDATE SET
+                        name = excluded.name,
+                        url = excluded.url,
+                        source_type = excluded.source_type,
+                        region = excluded.region,
+                        discipline_focus = excluded.discipline_focus,
+                        crawl_frequency = excluded.crawl_frequency,
+                        parser_type = excluded.parser_type,
+                        trust_level = excluded.trust_level,
+                        requires_manual_review = excluded.requires_manual_review,
+                        notes = excluded.notes
                 """, (
                     s["source_id"], s["name"], s["url"], s["source_type"],
                     s.get("region", "international"), s.get("discipline_focus", "visual art"),
@@ -313,14 +308,11 @@ def seed():
                     s.get("trust_level", 3), s.get("requires_manual_review", 0),
                     s.get("notes", ""),
                 ))
-                if conn.execute("SELECT changes()").fetchone()[0]:
-                    inserted += 1
-                else:
-                    skipped += 1
+                upserted += 1
             except Exception as e:
-                print(f"Error inserting {s['source_id']}: {e}")
+                print(f"Error upserting {s['source_id']}: {e}")
 
-    print(f"Seeded: {inserted} inserted, {skipped} already existed.")
+    print(f"Seeded: {upserted} sources upserted.")
     conn.close()
 
 

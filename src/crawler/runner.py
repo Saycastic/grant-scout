@@ -10,6 +10,7 @@ from datetime import datetime
 from src.database.db import get_conn
 from src.crawler.html_fetcher import crawl_source
 from src.crawler.js_fetcher import crawl_source_js
+from src.crawler.listing_fetcher import crawl_listing, LISTING_CONFIGS
 from src.alerts.alert import send_alert
 
 
@@ -49,8 +50,9 @@ def run_crawler(frequency: str = None, source_id: str = None) -> list[dict]:
         try:
             if ptype == "dynamic_js":
                 result = crawl_source_js(sid, url)
+            elif ptype == "listing" and sid in LISTING_CONFIGS:
+                result = crawl_listing(sid, LISTING_CONFIGS[sid])
             else:
-                # html, rss, api — базово через html_fetcher
                 result = crawl_source(sid, url)
 
             results.append(result)

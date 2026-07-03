@@ -8,6 +8,7 @@ import httpx
 from datetime import datetime, date, timedelta
 from typing import Optional
 from pathlib import Path
+from html import escape
 
 # Load .env if present
 _env_path = Path(__file__).parent.parent.parent / ".env"
@@ -70,27 +71,29 @@ def format_opportunity(opp: dict, idx: int) -> str:
     lines = []
 
     # Заголовок
-    title = opp.get("title", "Без названия")
+    title = escape(opp.get("title") or "Untitled")
     url = opp.get("url", "")
+    if not str(url).startswith(("http://", "https://")):
+        url = ""
+    url_safe = escape(url, quote=True) if url else ""
     if url:
-        lines.append(f'{quality_icon} <b><a href="{url}">{title}</a></b>')
+        lines.append(f'{quality_icon} <b><a href="{url_safe}">{title}</a></b>')
     else:
         lines.append(f"{quality_icon} <b>{title}</b>")
 
     # Организация
-    org = opp.get("organization", "")
+    org = escape(opp.get("organization") or "")
     if org:
         lines.append(f"🏛 {org}")
 
     # Сумма
-    amount = opp.get("amount", "")
+    amount = escape(opp.get("amount") or "")
     if amount:
         lines.append(f"💰 {amount}")
 
     # Дедлайн
     deadline = opp.get("deadline") or opp.get("deadline_raw", "")
     if deadline:
-        # Проверяем близость дедлайна
         try:
             dl_date = date.fromisoformat(deadline)
             days_left = (dl_date - date.today()).days
@@ -101,18 +104,18 @@ def format_opportunity(opp: dict, idx: int) -> str:
             else:
                 lines.append(f"📅 Deadline: {deadline}")
         except ValueError:
-            lines.append(f"📅 Deadline: {deadline}")
+            lines.append(f"📅 Deadline: {escape(str(deadline))}")
     else:
         lines.append("📅 Deadline: check website")
 
     # Открыт международным?
     intl = opp.get("open_to_international")
-    if intl is True:
-        lines.append("🌍 Международный")
-    elif intl is False:
+    if intl == 1 or intl is True:
+        lines.append("🌍 International")
+    elif intl == 0 or intl is False:
         lines.append("🇺🇸 Residents only")
 
-    summary = opp.get("summary_ru", "")
+    summary = escape(opp.get("summary_ru") or opp.get("summary") or "")
     if summary:
         lines.append(f"\n<i>{summary}</i>")
 
@@ -217,13 +220,17 @@ def send_digest(digest_type: str = "new", days_window: int = 14) -> int:
     messages = build_digest(opps, digest_type)
 
     sent_count = 0
+    all_sent = True
     for msg_text in messages:
         msg_id = send_message(msg_text)
-        if msg_id is not None or not _bot_token():
-            sent_count += len(opps)  # условно все в этом сообщении
+        if msg_id is None and _bot_token():
+            print("[delivery] Telegram send failed — not marking as sent")
+            all_sent = False
+            break
+        sent_count += 1
 
     # Помечаем как отправленные
-    if messages:
+    if messages and all_sent:
         now = datetime.utcnow().isoformat()
         opp_ids = [o["id"] for o in opps]
         placeholders = ",".join("?" * len(opp_ids))
