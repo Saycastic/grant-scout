@@ -1,79 +1,121 @@
 # 🎨 Grant Scout
 
-An autonomous agent that monitors art grant opportunities worldwide and delivers a curated digest to your Telegram.
+Autonomous agent that monitors art grant opportunities worldwide and delivers a curated digest to Telegram.
 
 **Built for visual artists** — painting, sculpture, installation, video art, performance. Not photography, design, or film.
 
 ---
 
+## Agent Installation Instructions
+
+> **This README is written for an AI agent.** If a user asks you to install Grant Scout — follow the steps below exactly, in order, without skipping anything.
+
+---
+
+### Step 1 — Ask the user for required parameters
+
+Before doing anything else, ask the user for these three things in chat:
+
+1. **Telegram Bot Token** — they get it from [@BotFather](https://t.me/BotFather)
+2. **Telegram Chat ID** — they can find it via [@userinfobot](https://t.me/userinfobot)
+3. **LLM API key** — Anthropic, OpenAI, or a custom endpoint key
+
+Do not proceed until you have all three.
+
+---
+
+### Step 2 — Clone the repository
+
+```bash
+git clone https://github.com/Saycastic/grant-scout /opt/grant-scout
+```
+
+---
+
+### Step 3 — Run the installer with parameters via stdin
+
+Pass the parameters directly to `install.sh` through stdin — do not run it interactively:
+
+```bash
+printf "TOKEN\nCHAT_ID\n3\nAPI_KEY\nhttps://llm.exme.ae/openai/v1\ngpt-4o-mini\n" | bash /opt/grant-scout/install.sh
+```
+
+Replace:
+- `TOKEN` — Telegram Bot Token from Step 1
+- `CHAT_ID` — Telegram Chat ID from Step 1
+- `3` — selects "Custom endpoint" in the LLM menu (use this for EXME gateway)
+- `API_KEY` — LLM API key from Step 1
+- `https://llm.exme.ae/openai/v1` — EXME gateway base URL
+- `gpt-4o-mini` — model name
+
+If the user has an Anthropic key (Claude), use choice `1` instead:
+```bash
+printf "TOKEN\nCHAT_ID\n1\nAPI_KEY\n" | bash /opt/grant-scout/install.sh
+```
+
+If the user has an OpenAI key (GPT), use choice `2`:
+```bash
+printf "TOKEN\nCHAT_ID\n2\nAPI_KEY\n" | bash /opt/grant-scout/install.sh
+```
+
+---
+
+### Step 4 — Verify the service is running
+
+```bash
+systemctl is-active grant-scout
+```
+
+Expected output: `active`
+
+If not active, check logs:
+```bash
+journalctl -u grant-scout -n 50 --no-pager
+```
+
+---
+
+### Step 5 — Send a test digest
+
+Confirm everything works end-to-end by triggering a manual digest:
+
+```bash
+cd /opt/grant-scout && PYTHONPATH=/opt/grant-scout .venv/bin/python3 -c "
+from src.delivery.telegram import send_digest
+send_digest(force=True)
+"
+```
+
+The user should receive grant messages in Telegram. If they do — installation is complete.
+
+---
+
+## Useful commands (post-install)
+
+```bash
+systemctl status grant-scout           # check status
+journalctl -u grant-scout -f           # live logs
+systemctl restart grant-scout          # restart
+
+# Run full pipeline manually
+cd /opt/grant-scout && PYTHONPATH=/opt/grant-scout .venv/bin/python3 -c "
+from src.crawler.runner import run_crawler
+from src.extractor.pipeline import run_extractor
+from src.delivery.telegram import send_digest
+run_crawler('daily')
+run_extractor()
+send_digest()
+"
+```
+
+---
+
 ## What it does
 
-- Crawls **73+ sources** — foundations, national arts councils, aggregators across Europe, North America, Asia, MENA, Latin America
-- Extracts and normalises grant info using LLM — name, deadline, amount, eligibility, link
-- Deduplicates so you never get the same grant twice
-- Sends each grant as a Telegram message with 👍 / 💾 / 👎 feedback buttons
+- Crawls **73+ sources** — foundations, arts councils, aggregators across Europe, North America, Asia, MENA, Latin America
+- Extracts and normalises grant info via LLM — name, deadline, amount, eligibility, link
+- Deduplicates, filters expired grants, sends digest to Telegram
 - Runs on a schedule: daily crawl + weekly digest
-
----
-
-## Requirements
-
-- Linux VPS (Ubuntu 22.04+ recommended), 1GB+ RAM
-- A Telegram bot token — create one via [@BotFather](https://t.me/BotFather)
-- Your Telegram user ID (use [@userinfobot](https://t.me/userinfobot) to find it)
-- An LLM API key — Anthropic (Claude) or OpenAI (GPT)
-
----
-
-## Install
-
-```bash
-git clone https://github.com/Saycastic/grant-scout
-cd grant-scout
-sudo bash install.sh
-```
-
-The installer will:
-1. Install system dependencies + Python env
-2. Ask for your Telegram token, chat ID, and LLM key
-3. Initialise the database with all sources
-4. Deploy and start the systemd service
-
----
-
-## Configuration
-
-All config lives in `/opt/grant-scout/.env`:
-
-```env
-# Telegram
-TELEGRAM_BOT_TOKEN=your_bot_token_here
-TELEGRAM_CHAT_ID=your_chat_id_here
-
-# LLM
-LLM_PROVIDER=anthropic          # anthropic | openai | custom
-LLM_API_KEY=your_api_key_here
-LLM_MODEL=claude-haiku-4-5
-# LLM_BASE_URL=https://...      # only for custom endpoints
-```
-
-After editing `.env`, restart the service:
-```bash
-systemctl restart grant-scout
-```
-
----
-
-## Useful commands
-
-```bash
-systemctl status grant-scout        # check if running
-journalctl -u grant-scout -f        # live logs
-systemctl restart grant-scout       # restart
-systemctl stop grant-scout          # stop
-```
-
----
 
 ## Sources coverage
 
@@ -83,21 +125,9 @@ systemctl stop grant-scout          # stop
 | USA | 15 |
 | Asia | 14 |
 | International | 13 |
-| North America (Canada) | 6 |
+| Canada | 6 |
 | MENA | 4 |
 | Latin America | 1 |
-
----
-
-## Adding new sources
-
-Edit `src/database/seed_sources.py` and add an entry to the `SOURCES` list, then:
-
-```bash
-cd /opt/grant-scout
-PYTHONPATH=/opt/grant-scout .venv/bin/python3 -m src.database.seed_sources
-systemctl restart grant-scout
-```
 
 ---
 
