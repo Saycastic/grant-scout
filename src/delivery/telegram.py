@@ -19,7 +19,10 @@ if _env_path.exists():
             _k, _, _v = _line.partition("=")
             os.environ.setdefault(_k.strip(), _v.strip())
 
+import time
+
 from src.database.db import get_conn
+from src.delivery.feedback import send_with_feedback
 
 
 def _bot_token() -> str:
@@ -60,7 +63,7 @@ def send_message(text: str, parse_mode: str = "HTML") -> Optional[int]:
         return None
 
 
-def format_opportunity(opp: dict, idx: int) -> str:
+def format_opportunity(opp: dict, idx: int = 1) -> str:
     """Форматирует одну возможность в HTML-блок."""
     quality_icon = {
         "high": "🟢",
@@ -93,7 +96,16 @@ def format_opportunity(opp: dict, idx: int) -> str:
 
     # Дедлайн
     deadline = opp.get("deadline") or opp.get("deadline_raw", "")
-    if deadline:
+    dl_type = opp.get("deadline_type", "unknown")
+
+    if dl_type == "rolling":
+        lines.append("🔄 Deadline: rolling (open year-round)")
+    elif dl_type == "recurring":
+        notes = opp.get("deadline_notes", "")
+        lines.append(f"🔁 Deadline: recurring{' — ' + escape(notes) if notes else ''}")
+    elif dl_type == "tba":
+        lines.append("📅 Deadline: TBA")
+    elif deadline:
         try:
             dl_date = date.fromisoformat(deadline)
             days_left = (dl_date - date.today()).days
@@ -217,22 +229,31 @@ def send_digest(digest_type: str = "new", days_window: int = 14) -> int:
         return 0
 
     opps = [dict(row) for row in rows]
-    messages = build_digest(opps, digest_type)
 
     sent_count = 0
     all_sent = True
-    for msg_text in messages:
-        msg_id = send_message(msg_text)
+    sent_ids = []
+
+    for opp in opps:
+        msg_text = format_opportunity(opp)
+        opp_id = opp["id"]
+
+        # Отправляем с feedback кнопками
+        msg_id = send_with_feedback(_chat_id(), msg_text, opp_id)
+
         if msg_id is None and _bot_token():
-            print("[delivery] Telegram send failed — not marking as sent")
+            print(f"[delivery] Failed to send opp {opp_id} — stopping")
             all_sent = False
             break
+
         sent_count += 1
+        sent_ids.append(opp_id)
+        time.sleep(0.5)  # Telegram rate limit
 
     # Помечаем как отправленные
-    if messages and all_sent:
+    if sent_ids and all_sent:
         now = datetime.utcnow().isoformat()
-        opp_ids = [o["id"] for o in opps]
+        opp_ids = sent_ids
         placeholders = ",".join("?" * len(opp_ids))
         conn.execute(
             f"UPDATE opportunities SET sent_at = ? WHERE id IN ({placeholders})",

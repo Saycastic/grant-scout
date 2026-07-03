@@ -10,6 +10,7 @@ from datetime import datetime
 
 from src.database.db import get_conn
 from src.extractor.llm_normalizer import call_llm, make_canonical_key
+from src.extractor.cost_guard import check_limits, log_call, reset_run_counter
 
 
 DISCIPLINE_REJECT_KEYWORDS = [
@@ -63,6 +64,11 @@ def validate_grant(g: dict, source_url: str) -> dict:
     if not str(g["url"]).startswith(("http://", "https://")):
         g["url"] = source_url
 
+    # deadline_type
+    valid_types = ("fixed", "rolling", "recurring", "tba", "closed", "unknown")
+    if g.get("deadline_type") not in valid_types:
+        g["deadline_type"] = "fixed" if g["deadline"] else "unknown"
+
     return g
 
 
@@ -73,6 +79,13 @@ def process_page(page_id: int, source_id: str, source_url: str, clean_text: str)
     """
     conn = get_conn()
     stats = {"processed": 0, "new": 0, "skipped": 0, "errors": 0}
+
+    # Cost guard
+    ok, reason = check_limits()
+    if not ok:
+        print(f"[extractor] COST GUARD: skipping page {page_id} — {reason}")
+        stats["skipped"] += 1
+        return stats
 
     try:
         grants = call_llm(clean_text, source_url)
@@ -88,6 +101,7 @@ def process_page(page_id: int, source_id: str, source_url: str, clean_text: str)
         return stats
 
     print(f"[extractor] Page {page_id}: LLM returned {len(grants)} grants")
+    log_call(source_id, page_id, len(clean_text), len(grants))
 
     for g in grants:
         stats["processed"] += 1
@@ -136,7 +150,8 @@ def process_page(page_id: int, source_id: str, source_url: str, clean_text: str)
                     application_fee, is_paid_opportunity, requires_fiscal_sponsor,
                     open_to_international, url, source_url,
                     summary_ru, why_relevant_ru,
-                    opportunity_quality, confidence
+                    opportunity_quality, confidence,
+                    deadline_type, deadline_notes
                 ) VALUES (
                     ?, ?, ?, ?,
                     ?, ?, ?,
@@ -144,6 +159,7 @@ def process_page(page_id: int, source_id: str, source_url: str, clean_text: str)
                     ?, ?, ?, ?,
                     ?, ?, ?,
                     ?, ?, ?,
+                    ?, ?,
                     ?, ?,
                     ?, ?
                 )
@@ -172,6 +188,8 @@ def process_page(page_id: int, source_id: str, source_url: str, clean_text: str)
                 g.get("why_relevant", ""),
                 g.get("opportunity_quality", "medium"),
                 g.get("confidence", 0.5),
+                g.get("deadline_type", "unknown"),
+                g.get("deadline_notes", ""),
             )).lastrowid
             conn.commit()
 
@@ -204,6 +222,8 @@ def run_extractor(page_id: int = None, source_id: str = None):
     Извлекает ТОЛЬКО необработанные страницы (extracted_at IS NULL) из raw_pages.
     """
     conn = get_conn()
+
+    reset_run_counter()
 
     if page_id:
         query = "SELECT id, source_id, url, raw_text FROM raw_pages WHERE id = ?"

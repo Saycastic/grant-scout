@@ -5,19 +5,39 @@ Main Scheduler — запускает crawler → extractor → delivery по р
 
 import os
 import time
+import threading
 import schedule
 from datetime import datetime
 
 from src.crawler.runner import run_crawler
 from src.extractor.pipeline import run_extractor
+from src.extractor.cost_guard import get_today_stats
 from src.delivery.telegram import send_digest
+from src.delivery.admin_report import send_run_report
+from src.delivery.feedback import run_polling
 
 
 def run_pipeline(frequency: str):
-    """Полный цикл: crawl → extract → (delivery вызывается отдельно по расписанию)."""
+    """Полный цикл: crawl → extract → admin report."""
     print(f"\n[main] ═══ Pipeline START ({frequency}) — {datetime.utcnow().isoformat()} ═══")
-    run_crawler(frequency=frequency)
+
+    crawl_results = run_crawler(frequency=frequency)
     run_extractor()
+
+    # Admin report
+    llm_stats = get_today_stats()
+    # Получаем статистику экстрактора из последнего прогона
+    from src.database.db import get_conn
+    conn = get_conn()
+    today = datetime.utcnow().date().isoformat()
+    new_today = conn.execute(
+        "SELECT COUNT(*) FROM opportunities WHERE first_seen_at >= ?", (today,)
+    ).fetchone()[0]
+    conn.close()
+
+    extractor_stats = {"new": new_today, "skipped": 0, "errors": 0}
+    send_run_report(crawl_results, extractor_stats, llm_stats)
+
     print(f"[main] ═══ Pipeline DONE ({frequency}) ═══\n")
 
 
@@ -39,6 +59,11 @@ def main():
 
     print(f"[main] Grant Scout starting...")
     print(f"[main] Digest: {digest_day} at {digest_time}")
+
+    # Feedback polling в отдельном потоке
+    feedback_thread = threading.Thread(target=run_polling, daemon=True)
+    feedback_thread.start()
+    print("[main] Feedback polling started")
 
     # Ежедневный краулинг (агрегаторы)
     schedule.every().day.at("06:00").do(run_pipeline, frequency="daily")
