@@ -108,7 +108,7 @@ SOURCES = [
         "notes": "Каталог grants/funding worldwide для artists. Обновлён февраль 2026.",
     },
     {
-        "source_id": "fractured_atlas",
+        "source_id": "fractured_atlas", "status": "inactive",
         "name": "Fractured Atlas — Artist Opportunity Database",
         "url": "https://fracturedatlas.notion.site/Artist-Opportunity-Database",
         "source_type": "aggregator",
@@ -178,7 +178,7 @@ SOURCES = [
     {
         "source_id": "joan_mitchell",
         "name": "Joan Mitchell Foundation — Grants",
-        "url": "https://joanmitchellfoundation.org/grants/",
+        "url": "https://www.joanmitchellfoundation.org/artist-programs/",
         "source_type": "fund",
         "region": "usa",
         "crawl_frequency": "monthly",
@@ -222,7 +222,7 @@ SOURCES = [
     {
         "source_id": "andy_warhol_fnd",
         "name": "Andy Warhol Foundation for the Visual Arts",
-        "url": "https://warholfoundation.org/grant/",
+        "url": "https://warholfoundation.org/grants/", "parser_type": "dynamic_js",,
         "source_type": "fund",
         "region": "international",
         "crawl_frequency": "monthly",
@@ -244,7 +244,7 @@ SOURCES = [
 
     # ── Европейские и международные фонды ─────────────────────────────────────
     {
-        "source_id": "british_council_arts",
+        "source_id": "british_council_arts", "status": "inactive",
         "name": "British Council — Arts Funding",
         "url": "https://www.britishcouncil.org/arts/funding",
         "source_type": "government",
@@ -257,7 +257,7 @@ SOURCES = [
     {
         "source_id": "goethe_fnd",
         "name": "Goethe-Institut — Grants & Residencies",
-        "url": "https://www.goethe.de/en/kul/the/sti.html",
+        "url": "https://www.goethe.de/en/kul/the/prg.html",
         "source_type": "government",
         "region": "international",
         "crawl_frequency": "monthly",
