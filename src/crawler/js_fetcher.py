@@ -14,7 +14,7 @@ def content_hash(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-def fetch_js(url: str, timeout: int = 30, wait_for: str = "networkidle") -> tuple[Optional[str], int]:
+def fetch_js(url: str, timeout: int = 30, wait_for: str = "domcontentloaded") -> tuple[Optional[str], int]:
     """
     Возвращает (clean_text, status_code).
     Playwright нужен только для dynamic_js источников.
@@ -24,7 +24,7 @@ def fetch_js(url: str, timeout: int = 30, wait_for: str = "networkidle") -> tupl
         import trafilatura
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
             context = browser.new_context(
                 user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
                 locale="en-US",
@@ -34,7 +34,12 @@ def fetch_js(url: str, timeout: int = 30, wait_for: str = "networkidle") -> tupl
             response = page.goto(url, timeout=timeout * 1000, wait_until=wait_for)
             status_code = response.status if response else 0
 
-            if status_code == 200:
+            if status_code in (200, 0):
+                # Ждём чуть-чуть и скроллим чтобы активировать lazy-load
+                page.wait_for_timeout(2000)
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight / 2)")
+                page.wait_for_timeout(1500)
+
                 html = page.content()
                 clean = trafilatura.extract(
                     html,
@@ -43,7 +48,7 @@ def fetch_js(url: str, timeout: int = 30, wait_for: str = "networkidle") -> tupl
                     no_fallback=False,
                 ) or ""
                 browser.close()
-                return clean, status_code
+                return clean, 200 if status_code == 0 else status_code
             else:
                 browser.close()
                 return None, status_code
