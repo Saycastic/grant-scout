@@ -7,6 +7,16 @@ import json
 import httpx
 from datetime import datetime, date, timedelta
 from typing import Optional
+from pathlib import Path
+
+# Load .env if present
+_env_path = Path(__file__).parent.parent.parent / ".env"
+if _env_path.exists():
+    for _line in _env_path.read_text().splitlines():
+        _line = _line.strip()
+        if _line and not _line.startswith("#") and "=" in _line:
+            _k, _, _v = _line.partition("=")
+            os.environ.setdefault(_k.strip(), _v.strip())
 
 from src.database.db import get_conn
 
@@ -85,24 +95,23 @@ def format_opportunity(opp: dict, idx: int) -> str:
             dl_date = date.fromisoformat(deadline)
             days_left = (dl_date - date.today()).days
             if days_left <= 7:
-                lines.append(f"⏰ Дедлайн: {deadline} — <b>через {days_left} дн!</b>")
+                lines.append(f"⏰ Deadline: {deadline} — <b>{days_left} days left!</b>")
             elif days_left <= 14:
-                lines.append(f"📅 Дедлайн: {deadline} (через {days_left} дн)")
+                lines.append(f"📅 Deadline: {deadline} ({days_left} days left)")
             else:
-                lines.append(f"📅 Дедлайн: {deadline}")
+                lines.append(f"📅 Deadline: {deadline}")
         except ValueError:
-            lines.append(f"📅 Дедлайн: {deadline}")
+            lines.append(f"📅 Deadline: {deadline}")
     else:
-        lines.append("📅 Дедлайн: уточняйте на сайте")
+        lines.append("📅 Deadline: check website")
 
     # Открыт международным?
     intl = opp.get("open_to_international")
     if intl is True:
         lines.append("🌍 Международный")
     elif intl is False:
-        lines.append("🇺🇸 Только резиденты")
+        lines.append("🇺🇸 Residents only")
 
-    # Краткое описание на русском
     summary = opp.get("summary_ru", "")
     if summary:
         lines.append(f"\n<i>{summary}</i>")
@@ -121,11 +130,11 @@ def build_digest(opportunities: list[dict], digest_type: str = "new") -> list[st
     now_str = datetime.now().strftime("%d.%m.%Y")
 
     if digest_type == "new":
-        header = f"🎨 <b>Новые гранты для художников</b> — {now_str}\n"
+        header = f"🎨 <b>New grants for artists</b> — {now_str}\n"
     elif digest_type == "expiring":
-        header = f"⏰ <b>Истекают дедлайны</b> — {now_str}\n"
+        header = f"⏰ <b>Deadlines expiring soon</b> — {now_str}\n"
     else:
-        header = f"📋 <b>Гранты для художников</b> — {now_str}\n"
+        header = f"📋 <b>Grants for artists</b> — {now_str}\n"
 
     messages = []
     current = header
@@ -148,7 +157,7 @@ def build_digest(opportunities: list[dict], digest_type: str = "new") -> list[st
     # Футер к последнему сообщению
     if messages:
         total = len(opportunities)
-        messages[-1] += f"\n\n<i>Всего: {total} возможностей</i>"
+        messages[-1] += f"\n\n<i>Total: {total} opportunities</i>"
 
     return messages
 
@@ -163,11 +172,13 @@ def send_digest(digest_type: str = "new", days_window: int = 14) -> int:
 
     if digest_type == "new":
         # Все не отправленные, quality != reject
+        today = date.today().isoformat()
         rows = conn.execute("""
             SELECT * FROM opportunities
             WHERE sent_at IS NULL
               AND opportunity_quality != 'reject'
               AND is_visual_art_relevant = 1
+              AND (deadline IS NULL OR deadline >= ?)
             ORDER BY
               CASE opportunity_quality
                 WHEN 'high' THEN 1
@@ -176,7 +187,7 @@ def send_digest(digest_type: str = "new", days_window: int = 14) -> int:
               END,
               first_seen_at DESC
             LIMIT 30
-        """).fetchall()
+        """, (today,)).fetchall()
 
     elif digest_type == "expiring":
         # Дедлайн в ближайшие N дней, ещё не отправлялись
