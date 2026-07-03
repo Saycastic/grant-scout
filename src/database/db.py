@@ -7,6 +7,11 @@ SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 
 
 def get_conn() -> sqlite3.Connection:
+    # Автоинициализация схемы если БД не существует
+    if not Path(DB_PATH).exists():
+        init_db()
+        from src.database.seed_sources import seed
+        seed()
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
