@@ -1,0 +1,29 @@
+telegram:
+  bot_token: "YOUR_BOT_TOKEN_HERE"
+  chat_id: "YOUR_CHAT_ID_HERE"
+
+llm:
+  provider: "anthropic"          # anthropic / openai
+  model: "claude-3-5-haiku-20241022"
+  api_key: "YOUR_API_KEY_HERE"
+
+crawler:
+  user_agent: "Mozilla/5.0 (compatible; GrantScout/1.0)"
+  request_timeout: 15
+  playwright_timeout: 30
+  max_retries: 3
+  delay_between_requests: 2     # секунды
+
+schedule:
+  digest_time: "09:00"          # время отправки дайджеста
+  digest_day: "monday"          # для weekly: день недели
+  digest_frequency: "weekly"    # daily / weekly
+
+alerts:
+  enabled: true
+  alert_on_crawler_error: true
+  alert_on_new_high_quality: true
+  expiry_warning_days: 14       # алерт если дедлайн через N дней
+
+database:
+  path: "data/grant_scout.db"
