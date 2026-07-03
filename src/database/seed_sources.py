@@ -20,6 +20,7 @@ SOURCES = [
     },
     {
         "source_id": "artconnect",
+        "parser_type": "listing",
         "name": "ArtConnect Grants & Stipends",
         "url": "https://www.artconnect.com/opportunities/grant-or-stipend",
         "source_type": "aggregator",

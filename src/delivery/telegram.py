@@ -127,7 +127,7 @@ def format_opportunity(opp: dict, idx: int = 1) -> str:
     elif intl == 0 or intl is False:
         lines.append("🇺🇸 Residents only")
 
-    summary = escape(opp.get("summary_ru") or opp.get("summary") or "")
+    summary = escape(opp.get("summary") or "")
     if summary:
         lines.append(f"\n<i>{summary}</i>")
 

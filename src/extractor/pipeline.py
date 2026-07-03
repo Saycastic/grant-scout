@@ -149,7 +149,7 @@ def process_page(page_id: int, source_id: str, source_url: str, clean_text: str)
                     amount, currency, deadline, deadline_raw,
                     application_fee, is_paid_opportunity, requires_fiscal_sponsor,
                     open_to_international, url, source_url,
-                    summary_ru, why_relevant_ru,
+                    summary, why_relevant,
                     opportunity_quality, confidence,
                     deadline_type, deadline_notes
                 ) VALUES (
