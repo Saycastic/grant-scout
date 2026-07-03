@@ -36,6 +36,11 @@ def run_pipeline(frequency: str):
     extractor_stats = {"new": new_today, "skipped": 0, "errors": 0}
     send_run_report(crawl_results, extractor_stats, llm_stats)
 
+    # Отправляем новые гранты сразу после каждого прогона
+    sent = send_digest(digest_type="new")
+    if sent:
+        print(f"[main] Sent {sent} new opportunities to Telegram")
+
     print(f"[main] ═══ Pipeline DONE ({frequency}) ═══\n")
 
 

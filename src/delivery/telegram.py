@@ -267,8 +267,8 @@ def send_digest(digest_type: str = "new", days_window: int = 14) -> int:
         conn.commit()
 
     conn.close()
-    print(f"[delivery] Sent {digest_type} digest: {len(opps)} opportunities, {len(messages)} messages")
-    return len(opps)
+    print(f"[delivery] Sent {digest_type} digest: {sent_count} opportunities")
+    return sent_count
 
 
 if __name__ == "__main__":
