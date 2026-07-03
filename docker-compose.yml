@@ -1,0 +1,12 @@
+services:
+  grant-scout:
+    build: .
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data          # SQLite база — персистентна между перезапусками
+      - ./config:/app/config      # конфиг
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
