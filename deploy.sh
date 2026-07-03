@@ -45,6 +45,17 @@ else
     error "Neither uv nor pip found. Cannot install dependencies."
 fi
 
+# ── Playwright ─────────────────────────────────────────────────────────────────
+info "Installing Playwright browser (Chromium)..."
+if "$PYTHON" -m playwright install chromium 2>/dev/null; then
+    # Системные зависимости (нужен sudo или root)
+    "$PYTHON" -m playwright install-deps chromium 2>/dev/null || \
+        warn "Не удалось установить системные зависимости Playwright. Запусти вручную: python3 -m playwright install-deps chromium"
+    info "Playwright Chromium установлен."
+else
+    warn "Playwright не установлен — JS-источники (NYFA, Pollock-Krasner, Creative Capital) работать не будут. Установи вручную: pip install playwright && playwright install chromium"
+fi
+
 # ── 3. .env ────────────────────────────────────────────────────────────────────
 if [ ! -f "$REPO_DIR/.env" ]; then
     cp "$REPO_DIR/.env.example" "$REPO_DIR/.env"
