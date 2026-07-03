@@ -54,6 +54,7 @@ SOURCES = [
     },
     {
         "source_id": "transartists",
+        "status": "inactive",
         "name": "TransArtists / DutchCulture Funding",
         "url": "https://www.transartists.org/en/opportunities",
         "source_type": "aggregator",
@@ -65,6 +66,7 @@ SOURCES = [
     },
     {
         "source_id": "res_artis",
+        "status": "inactive",
         "name": "Res Artis — Open Calls & Funding",
         "url": "https://www.resartis.org/en/opportunities/",
         "source_type": "aggregator",
@@ -233,7 +235,7 @@ SOURCES = [
     {
         "source_id": "jerome_fnd",
         "name": "Jerome Foundation",
-        "url": "https://jeromefdn.org/grants",
+        "url": "https://www.jeromefdn.org/",
         "source_type": "fund",
         "region": "usa",
         "crawl_frequency": "monthly",
@@ -256,6 +258,7 @@ SOURCES = [
     },
     {
         "source_id": "goethe_fnd",
+        "status": "inactive",
         "name": "Goethe-Institut — Grants & Residencies",
         "url": "https://www.goethe.de/en/kul/the/prg.html",
         "source_type": "government",
@@ -268,7 +271,7 @@ SOURCES = [
     {
         "source_id": "pro_helvetia",
         "name": "Pro Helvetia — Swiss Arts Council",
-        "url": "https://prohelvetia.ch/en/grants/",
+        "url": "https://prohelvetia.ch/en/",
         "source_type": "government",
         "region": "europe",
         "crawl_frequency": "monthly",
@@ -390,6 +393,7 @@ SOURCES = [
     },
     {
         "source_id": "cnap_artist_project",
+        "status": "inactive",
         "name": "CNAP - Soutien à un projet artistique",
         "url": "https://www.cnap.fr/soutien-creation/projets-artistes/modalites-de-candidature",
         "source_type": "government",
@@ -658,6 +662,7 @@ SOURCES = [
     },
     {
         "source_id": "sharjah_art_open_calls",
+        "status": "inactive",
         "name": "Sharjah Art Foundation - Open Calls",
         "url": "https://sharjahart.org/en/open-calls/list",
         "source_type": "foundation",
