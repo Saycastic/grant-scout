@@ -121,12 +121,16 @@ CREATE TABLE IF NOT EXISTS telegram_deliveries (
 );
 
 CREATE TABLE IF NOT EXISTS llm_usage (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    source_id       TEXT,
-    model           TEXT,
-    input_chars     INTEGER DEFAULT 0,
-    output_chars    INTEGER DEFAULT 0
+    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at              TEXT NOT NULL DEFAULT (datetime('now')),
+    source_id               TEXT,
+    raw_page_id             INTEGER,
+    provider                TEXT,
+    model                   TEXT,
+    prompt_chars            INTEGER DEFAULT 0,
+    input_chars             INTEGER DEFAULT 0,
+    output_chars            INTEGER DEFAULT 0,
+    opportunities_extracted INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS opportunity_feedback (
