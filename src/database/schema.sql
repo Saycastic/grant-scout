@@ -78,6 +78,8 @@ CREATE TABLE IF NOT EXISTS opportunities (
     why_relevant                TEXT,
     opportunity_quality         TEXT CHECK(opportunity_quality IN ('high', 'medium', 'low', 'reject')),
     confidence                  REAL DEFAULT 0.0,
+    deadline_type               TEXT DEFAULT 'unknown',   -- fixed/rolling/recurring/tba/closed/unknown
+    deadline_notes              TEXT,
     first_seen_at               TEXT DEFAULT (datetime('now')),
     last_updated_at             TEXT DEFAULT (datetime('now')),
     sent_at                     TEXT            -- когда отправили в Telegram
