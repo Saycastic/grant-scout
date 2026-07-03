@@ -5,7 +5,7 @@
 
 set -e
 
-REPO_DIR="$HOME/grant-scout"
+REPO_DIR="/root/grant-scout"
 SERVICE_NAME="grant-scout"
 VENV="$REPO_DIR/.venv"
 PYTHON="$VENV/bin/python3"
@@ -28,15 +28,21 @@ command -v git >/dev/null || error "git not found"
 # ── 2. Виртуальное окружение ───────────────────────────────────────────────────
 if [ ! -f "$VENV/bin/python3" ]; then
     info "Creating virtualenv..."
-    python3 -m venv "$VENV"
+    if command -v uv >/dev/null 2>&1; then
+        uv venv "$VENV" --python 3.11
+    else
+        python3 -m venv "$VENV"
+    fi
 fi
 
 info "Installing Python dependencies..."
-# Используем uv если есть (быстрее), иначе pip
-if command -v uv >/dev/null 2>&1; then
-    uv pip install --python "$PYTHON" -r "$REPO_DIR/requirements.txt" -q
-else
+UV_BIN=$(command -v uv 2>/dev/null || echo "/root/.local/bin/uv")
+if [ -f "$UV_BIN" ]; then
+    "$UV_BIN" pip install --python "$PYTHON" -r "$REPO_DIR/requirements.txt" -q
+elif [ -f "$VENV/bin/pip" ]; then
     "$VENV/bin/pip" install -q -r "$REPO_DIR/requirements.txt"
+else
+    error "Neither uv nor pip found. Cannot install dependencies."
 fi
 
 # ── 3. .env ────────────────────────────────────────────────────────────────────
@@ -63,13 +69,12 @@ cd "$REPO_DIR"
 PYTHONPATH="$REPO_DIR" "$PYTHON" -m src.database.db
 PYTHONPATH="$REPO_DIR" "$PYTHON" -m src.database.seed_sources
 
-# ── 5. Systemd unit ────────────────────────────────────────────────────────────
-info "Installing systemd service..."
+# ── 5. Запуск ──────────────────────────────────────────────────────────────────
+info "Starting Grant Scout..."
 
-# Читаем .env в формате для systemd (EnvironmentFile требует KEY=VALUE без export)
-ENV_FILE="$REPO_DIR/.env"
-
-cat > /tmp/grant-scout.service << EOF
+# Пробуем systemd (работает на полноценном VPS)
+if systemctl --user daemon-reload 2>/dev/null; then
+    cat > /tmp/grant-scout.service << EOF
 [Unit]
 Description=Grant Scout — art grants monitor
 After=network.target
@@ -90,25 +95,30 @@ StandardError=journal
 [Install]
 WantedBy=default.target
 EOF
-
-# User-level systemd (не требует sudo)
-mkdir -p "$HOME/.config/systemd/user"
-cp /tmp/grant-scout.service "$HOME/.config/systemd/user/$SERVICE_NAME.service"
-
-systemctl --user daemon-reload
-systemctl --user enable "$SERVICE_NAME"
-systemctl --user restart "$SERVICE_NAME"
-
-# ── 6. Проверка ────────────────────────────────────────────────────────────────
-sleep 3
-STATUS=$(systemctl --user is-active "$SERVICE_NAME" 2>/dev/null || echo "unknown")
-
-if [ "$STATUS" = "active" ]; then
-    info "✅ Grant Scout запущен и работает!"
-    info "Логи: journalctl --user -u $SERVICE_NAME -f"
-    info "Стоп: systemctl --user stop $SERVICE_NAME"
-    info "Рестарт: systemctl --user restart $SERVICE_NAME"
+    mkdir -p "$HOME/.config/systemd/user"
+    cp /tmp/grant-scout.service "$HOME/.config/systemd/user/$SERVICE_NAME.service"
+    systemctl --user daemon-reload
+    systemctl --user enable "$SERVICE_NAME"
+    systemctl --user restart "$SERVICE_NAME"
+    sleep 3
+    STATUS=$(systemctl --user is-active "$SERVICE_NAME" 2>/dev/null || echo "unknown")
+    if [ "$STATUS" = "active" ]; then
+        info "✅ Grant Scout запущен через systemd!"
+        info "Логи: journalctl --user -u $SERVICE_NAME -f"
+    else
+        warn "Systemd статус: $STATUS — проверь логи: journalctl --user -u $SERVICE_NAME -n 50"
+    fi
 else
-    warn "Сервис запущен, но статус: $STATUS"
-    warn "Проверь логи: journalctl --user -u $SERVICE_NAME -n 50"
+    # Fallback: nohup (для контейнеров без systemd)
+    pkill -f "src/main.py" 2>/dev/null || true
+    cd "$REPO_DIR"
+    nohup env PYTHONPATH="$REPO_DIR" "$PYTHON" "$REPO_DIR/src/main.py" >> "$REPO_DIR/data/grant-scout.log" 2>&1 &
+    sleep 2
+    if pgrep -f "src/main.py" > /dev/null; then
+        info "✅ Grant Scout запущен (nohup, PID $(pgrep -f 'src/main.py'))!"
+        info "Логи: tail -f $REPO_DIR/data/grant-scout.log"
+        info "Стоп: pkill -f src/main.py"
+    else
+        warn "Что-то пошло не так. Проверь логи: tail -20 $REPO_DIR/data/grant-scout.log"
+    fi
 fi
