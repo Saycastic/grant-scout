@@ -31,10 +31,11 @@ def process_page(page_id: int, source_url: str, clean_text: str) -> dict:
     for g in grants:
         stats["processed"] += 1
         try:
-            org = g.get("organization", "")
-            title = g.get("title", "")
-            deadline = g.get("deadline", "")
-            url = g.get("url", "") or source_url
+            # Алиасы — LLM иногда возвращает нестандартные поля
+            org = g.get("organization") or g.get("funder") or g.get("org") or ""
+            title = g.get("title") or g.get("name") or g.get("grant_name") or ""
+            deadline = g.get("deadline") or g.get("deadline_date") or ""
+            url = g.get("url") or g.get("website") or g.get("application_url") or source_url
 
             if not title:
                 stats["skipped"] += 1
@@ -142,13 +143,12 @@ def run_extractor(page_id: int = None, source_id: str = None):
         """
         params = [source_id]
     else:
-        # Все страницы которые ещё не обрабатывались экстрактором
+        # Все страницы — дедупликация идёт внутри process_page по canonical_key
         query = """
-            SELECT rp.id, rp.source_id, rp.url, rp.raw_text
-            FROM raw_pages rp
-            LEFT JOIN opportunity_sources os ON os.raw_page_id = rp.id
-            WHERE os.raw_page_id IS NULL AND rp.status_code = 200
-            ORDER BY rp.crawled_at DESC
+            SELECT id, source_id, url, raw_text
+            FROM raw_pages
+            WHERE status_code = 200 AND raw_text IS NOT NULL
+            ORDER BY crawled_at DESC
             LIMIT 50
         """
         params = []

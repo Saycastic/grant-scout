@@ -121,15 +121,26 @@ SOURCES = [
 
     # ── Прямые фонды — визуальное искусство ────────────────────────────────────
     {
-        "source_id": "fca",
-        "name": "Foundation for Contemporary Arts",
-        "url": "https://www.foundationforcontemporaryarts.org/grants/",
+        "source_id": "fca_emergency",
+        "name": "Foundation for Contemporary Arts — Emergency Grants",
+        "url": "https://www.foundationforcontemporaryarts.org/grants/emergency-grants/",
         "source_type": "fund",
         "region": "usa",
         "crawl_frequency": "monthly",
         "parser_type": "html",
         "trust_level": 5,
-        "notes": "Подтверждено: статичный HTML, парсится. Emergency Grants, Grants to Artists.",
+        "notes": "Срочные гранты $500-$3,000 для visual и performing artists в США. Открыты круглый год.",
+    },
+    {
+        "source_id": "fca_application",
+        "name": "Foundation for Contemporary Arts — Grants by Application",
+        "url": "https://www.foundationforcontemporaryarts.org/grants/by-application/",
+        "source_type": "fund",
+        "region": "usa",
+        "crawl_frequency": "monthly",
+        "parser_type": "html",
+        "trust_level": 5,
+        "notes": "Гранты FCA по заявке — основная программа для художников.",
     },
     {
         "source_id": "sustainable_arts",
