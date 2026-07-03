@@ -84,11 +84,15 @@ def _detect_llm_config() -> dict:
 
     # 2. Явно задан API-ключ в .env
     if api_key and provider in ("anthropic", "openai", ""):
-        return {
+        cfg = {
             "backend": provider or "anthropic",
             "api_key": api_key,
             "model": model,
         }
+        base_url = os.environ.get("LLM_BASE_URL", "")
+        if base_url:
+            cfg["base_url"] = base_url
+        return cfg
 
     # 3. EXME / Agent Manager — ищем ключи в ~/.agent-manager/.env
     agent_manager_env = os.path.expanduser("~/.agent-manager/.env")
