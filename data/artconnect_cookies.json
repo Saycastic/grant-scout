@@ -1,0 +1,132 @@
+[
+  {
+    "name": "ph_phc_17gSixwPhNLWmPE1MoL8giRYj7oV9LKYPL0GW6c9Jb1_posthog",
+    "value": "%7B%22distinct_id%22%3A%22019f28ca-9197-74ac-91f7-8340dbf01ebb%22%2C%22%24sesid%22%3A%5B1783095792021%2C%22019f28ca-9195-7bd6-b843-752ce30e5690%22%2C1783095792021%5D%7D",
+    "domain": ".artconnect.com",
+    "path": "/",
+    "expires": 1814631792,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "m",
+    "value": "16c8af65-01d7-4b6e-a0d6-d1caee0e7c686c4d63",
+    "domain": "m.stripe.com",
+    "path": "/",
+    "expires": 1817655797.709776,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "__stripe_mid",
+    "value": "aff19358-95a8-4cd8-9ca0-b956868b4858d017aa",
+    "domain": ".www.artconnect.com",
+    "path": "/",
+    "expires": 1814631797,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Strict"
+  },
+  {
+    "name": "__stripe_sid",
+    "value": "096de0f5-7d37-4c85-bd08-43bf0a604ecceafae7",
+    "domain": ".www.artconnect.com",
+    "path": "/",
+    "expires": 1783097597,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Strict"
+  },
+  {
+    "name": "cookieyes-consent",
+    "value": "consentid:cjZaWldBRVFyeHFDeEp1SmEzcGc0Y1RiOVVlSE5Kazk,consent:yes,action:yes,necessary:yes,functional:yes,analytics:yes,performance:yes,advertisement:yes,other:yes",
+    "domain": ".artconnect.com",
+    "path": "/",
+    "expires": 1814631795,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Strict"
+  },
+  {
+    "name": "_gcl_au",
+    "value": "1.1.407808381.1783095795",
+    "domain": ".artconnect.com",
+    "path": "/",
+    "expires": 1790871795,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "_ga",
+    "value": "GA1.2.2094823083.1783095793",
+    "domain": ".artconnect.com",
+    "path": "/",
+    "expires": 1817655795.157253,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "_gid",
+    "value": "GA1.2.829047709.1783095795",
+    "domain": ".artconnect.com",
+    "path": "/",
+    "expires": 1783182195,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "_gat_UA-22829049-1",
+    "value": "1",
+    "domain": ".artconnect.com",
+    "path": "/",
+    "expires": 1783095855,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "test_cookie",
+    "value": "CheckForPermission",
+    "domain": ".doubleclick.net",
+    "path": "/",
+    "expires": 1783096695.201825,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "_fbp",
+    "value": "fb.1.1783095795407.353457956828427792",
+    "domain": ".artconnect.com",
+    "path": "/",
+    "expires": 1790871795,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "profile",
+    "value": "andrey-egorov-kS3qpxnZFQwiInXKAfZ1l",
+    "domain": "www.artconnect.com",
+    "path": "/",
+    "expires": 1783193797.10055,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "_ga_EQSZNW7K5K",
+    "value": "GS2.1.s1783095793$o1$g1$t1783095798$j57$l0$h0",
+    "domain": ".artconnect.com",
+    "path": "/",
+    "expires": 1817655798.315705,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  }
+]
