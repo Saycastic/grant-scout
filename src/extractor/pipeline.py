@@ -41,9 +41,26 @@ def process_page(page_id: int, source_url: str, clean_text: str) -> dict:
                 stats["skipped"] += 1
                 continue
 
-            # Reject-фильтр
+            # Reject-фильтр от LLM
             if g.get("opportunity_quality") == "reject":
-                print(f"[extractor] REJECT: {title}")
+                print(f"[extractor] REJECT (LLM): {title}")
+                stats["skipped"] += 1
+                continue
+
+            # Постфильтр: отсеиваем строго-нехудожественные дисциплины
+            DISCIPLINE_REJECT_KEYWORDS = [
+                "photography only", "photographers only", "photo contest",
+                "graphic design", "industrial design", "product design",
+                "film festival", "screenplay", "documentary film",
+                "music composition", "composers only", "songwriting",
+                "literature", "poetry contest", "short story",
+                "architecture competition", "architectural design",
+                "fashion design", "textile design",
+                "illustration contest", "book illustration",
+            ]
+            combined_text = f"{title} {g.get('summary_ru', '')} {g.get('why_relevant_ru', '')}".lower()
+            if any(kw in combined_text for kw in DISCIPLINE_REJECT_KEYWORDS):
+                print(f"[extractor] REJECT (keyword filter): {title}")
                 stats["skipped"] += 1
                 continue
 
