@@ -176,23 +176,24 @@ def build_digest(opportunities: list[dict], digest_type: str = "new") -> list[st
     return messages
 
 
-def send_digest(digest_type: str = "new", days_window: int = 14) -> int:
+def send_digest(digest_type: str = "new", days_window: int = 14, force: bool = False) -> int:
     """
     Основная функция доставки.
     digest_type: 'new' — новые (не отправленные), 'expiring' — с близким дедлайном.
+    force: если True — отправляет все актуальные гранты, игнорируя sent_at.
     Возвращает количество отправленных грантов.
     """
     conn = get_conn()
 
     if digest_type == "new":
-        # Все не отправленные, quality != reject
         today = date.today().isoformat()
-        rows = conn.execute("""
+        sent_filter = "" if force else "AND sent_at IS NULL"
+        rows = conn.execute(f"""
             SELECT * FROM opportunities
-            WHERE sent_at IS NULL
-              AND opportunity_quality != 'reject'
+            WHERE opportunity_quality != 'reject'
               AND is_visual_art_relevant = 1
               AND (deadline IS NULL OR deadline >= ?)
+              {sent_filter}
             ORDER BY
               CASE opportunity_quality
                 WHEN 'high' THEN 1
