@@ -187,6 +187,98 @@ else
   error "Service failed to start. Check: journalctl -u ${SERVICE_NAME} -n 50"
 fi
 
+# ── DB health check ───────────────────────────────────────────
+section "7/7  Database health check"
+
+REQUIRED_TABLES="sources raw_pages opportunities crawl_runs telegram_deliveries llm_usage opportunity_feedback"
+REQUIRED_COLS_LLM="prompt_chars opportunities_extracted provider raw_page_id"
+
+DB_CHECK=$("${INSTALL_DIR}/.venv/bin/python3" - <<'PYEOF'
+import sqlite3, sys, os
+
+db_path = os.path.join(os.environ.get("INSTALL_DIR", "/opt/grant-scout"), "data/grant_scout.db")
+required_tables = [
+    "sources", "raw_pages", "opportunities", "crawl_runs",
+    "telegram_deliveries", "llm_usage", "opportunity_feedback"
+]
+required_llm_cols = ["prompt_chars", "opportunities_extracted", "provider", "raw_page_id"]
+
+errors = []
+try:
+    conn = sqlite3.connect(db_path)
+    existing = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+
+    for t in required_tables:
+        if t not in existing:
+            errors.append(f"MISSING TABLE: {t}")
+
+    if "llm_usage" in existing:
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(llm_usage)").fetchall()}
+        for c in required_llm_cols:
+            if c not in cols:
+                errors.append(f"MISSING COLUMN: llm_usage.{c}")
+    conn.close()
+except Exception as e:
+    errors.append(f"DB ERROR: {e}")
+
+if errors:
+    for e in errors:
+        print(e)
+    sys.exit(1)
+else:
+    print("OK")
+PYEOF
+)
+
+if [ "$DB_CHECK" = "OK" ]; then
+  success "Database schema verified — all tables and columns present"
+else
+  warn "Schema issues detected — attempting auto-fix..."
+  # Пересоздаём проблемные таблицы
+  "${INSTALL_DIR}/.venv/bin/python3" - <<'PYEOF'
+import sqlite3, os
+
+db_path = os.path.join(os.environ.get("INSTALL_DIR", "/opt/grant-scout"), "data/grant_scout.db")
+conn = sqlite3.connect(db_path)
+
+# Пересоздаём llm_usage с полной схемой
+existing = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+if "llm_usage" in existing:
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(llm_usage)").fetchall()}
+    required = {"prompt_chars", "opportunities_extracted", "provider", "raw_page_id"}
+    if not required.issubset(cols):
+        conn.execute("DROP TABLE llm_usage")
+        print("Dropped incomplete llm_usage")
+
+conn.execute("""
+CREATE TABLE IF NOT EXISTS llm_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,
+    source_id TEXT,
+    raw_page_id INTEGER,
+    provider TEXT,
+    model TEXT,
+    prompt_chars INTEGER DEFAULT 0,
+    input_chars INTEGER DEFAULT 0,
+    output_chars INTEGER DEFAULT 0,
+    opportunities_extracted INTEGER DEFAULT 0
+)""")
+conn.execute("""
+CREATE TABLE IF NOT EXISTS opportunity_feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    opportunity_id INTEGER NOT NULL,
+    feedback TEXT CHECK(feedback IN ('up', 'save', 'down')),
+    created_at TEXT NOT NULL
+)""")
+conn.commit()
+conn.close()
+print("Schema fixed.")
+PYEOF
+  systemctl restart "${SERVICE_NAME}"
+  sleep 3
+  success "Schema auto-fixed and service restarted"
+fi
+
 # ── Done ──────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}${BOLD}════════════════════════════════════════${NC}"
