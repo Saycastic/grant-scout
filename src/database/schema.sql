@@ -119,3 +119,19 @@ CREATE TABLE IF NOT EXISTS telegram_deliveries (
     message_id      TEXT,
     digest_type     TEXT CHECK(digest_type IN ('new', 'expiring', 'alert'))
 );
+
+CREATE TABLE IF NOT EXISTS llm_usage (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    source_id       TEXT,
+    model           TEXT,
+    input_chars     INTEGER DEFAULT 0,
+    output_chars    INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS opportunity_feedback (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    opportunity_id  INTEGER NOT NULL,
+    feedback        TEXT CHECK(feedback IN ('up', 'save', 'down')),
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
