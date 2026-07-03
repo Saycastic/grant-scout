@@ -229,36 +229,32 @@ def send_digest(digest_type: str = "new", days_window: int = 14) -> int:
 
     opps = [dict(row) for row in rows]
 
+    messages = build_digest(opps, digest_type=digest_type)
+    if not messages:
+        conn.close()
+        return 0
+
     sent_count = 0
     all_sent = True
-    sent_ids = []
 
-    for opp in opps:
-        msg_text = format_opportunity(opp)
-        opp_id = opp["id"]
-
-        # Отправляем без feedback кнопок (send-only mode)
+    for msg_text in messages:
         msg_id = send_message(msg_text)
-
         if msg_id is None and _bot_token():
-            print(f"[delivery] Failed to send opp {opp_id} — stopping")
+            print(f"[delivery] Failed to send message — stopping")
             all_sent = False
             break
-
         sent_count += 1
-        sent_ids.append(opp_id)
-        time.sleep(0.5)  # Telegram rate limit
+        time.sleep(0.5)
 
-    # Помечаем как отправленные
-    if sent_ids and all_sent:
+    # Помечаем все гранты как отправленные
+    if all_sent:
         now = datetime.utcnow().isoformat()
-        opp_ids = sent_ids
+        opp_ids = [opp["id"] for opp in opps]
         placeholders = ",".join("?" * len(opp_ids))
         conn.execute(
             f"UPDATE opportunities SET sent_at = ? WHERE id IN ({placeholders})",
             [now] + opp_ids,
         )
-        # Логируем в telegram_deliveries
         for opp in opps:
             conn.execute("""
                 INSERT INTO telegram_deliveries (opportunity_id, digest_type)
@@ -267,8 +263,8 @@ def send_digest(digest_type: str = "new", days_window: int = 14) -> int:
         conn.commit()
 
     conn.close()
-    print(f"[delivery] Sent {digest_type} digest: {sent_count} opportunities")
-    return sent_count
+    print(f"[delivery] Sent {digest_type} digest: {len(opps)} opportunities in {sent_count} message(s)")
+    return len(opps)
 
 
 if __name__ == "__main__":
