@@ -80,54 +80,42 @@ cd "$REPO_DIR"
 PYTHONPATH="$REPO_DIR" "$PYTHON" -m src.database.db
 PYTHONPATH="$REPO_DIR" "$PYTHON" -m src.database.seed_sources
 
-# ── 5. Запуск ──────────────────────────────────────────────────────────────────
-info "Starting Grant Scout..."
+# ── 5. systemd unit ────────────────────────────────────────────────────────────
+info "Installing systemd service..."
 
-# Пробуем systemd (работает на полноценном VPS)
-if systemctl --user daemon-reload 2>/dev/null; then
-    cat > /tmp/grant-scout.service << EOF
+cat > /etc/systemd/system/$SERVICE_NAME.service << UNIT
 [Unit]
 Description=Grant Scout — art grants monitor
 After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 WorkingDirectory=$REPO_DIR
 EnvironmentFile=$REPO_DIR/.env
 Environment=PYTHONPATH=$REPO_DIR
-ExecStart=$PYTHON src/main.py
+ExecStart=$PYTHON $REPO_DIR/src/main.py
 Restart=on-failure
 RestartSec=30
 StandardOutput=journal
 StandardError=journal
 
 [Install]
-WantedBy=default.target
-EOF
-    mkdir -p "$HOME/.config/systemd/user"
-    cp /tmp/grant-scout.service "$HOME/.config/systemd/user/$SERVICE_NAME.service"
-    systemctl --user daemon-reload
-    systemctl --user enable "$SERVICE_NAME"
-    systemctl --user restart "$SERVICE_NAME"
-    sleep 3
-    STATUS=$(systemctl --user is-active "$SERVICE_NAME" 2>/dev/null || echo "unknown")
-    if [ "$STATUS" = "active" ]; then
-        info "✅ Grant Scout запущен через systemd!"
-        info "Логи: journalctl --user -u $SERVICE_NAME -f"
-    else
-        warn "Systemd статус: $STATUS — проверь логи: journalctl --user -u $SERVICE_NAME -n 50"
-    fi
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable "$SERVICE_NAME"
+systemctl restart "$SERVICE_NAME"
+sleep 3
+
+STATUS=$(systemctl is-active "$SERVICE_NAME" 2>/dev/null || echo "unknown")
+if [ "$STATUS" = "active" ]; then
+    info "✅ Grant Scout запущен через systemd!"
+    info "Статус:  systemctl status $SERVICE_NAME"
+    info "Логи:    journalctl -u $SERVICE_NAME -f"
+    info "Стоп:    systemctl stop $SERVICE_NAME"
 else
-    # Fallback: nohup (для контейнеров без systemd)
-    pkill -f "src/main.py" 2>/dev/null || true
-    cd "$REPO_DIR"
-    nohup env PYTHONPATH="$REPO_DIR" "$PYTHON" "$REPO_DIR/src/main.py" >> "$REPO_DIR/data/grant-scout.log" 2>&1 &
-    sleep 2
-    if pgrep -f "src/main.py" > /dev/null; then
-        info "✅ Grant Scout запущен (nohup, PID $(pgrep -f 'src/main.py'))!"
-        info "Логи: tail -f $REPO_DIR/data/grant-scout.log"
-        info "Стоп: pkill -f src/main.py"
-    else
-        warn "Что-то пошло не так. Проверь логи: tail -20 $REPO_DIR/data/grant-scout.log"
-    fi
+    warn "Systemd статус: $STATUS"
+    warn "Логи: journalctl -u $SERVICE_NAME -n 50"
 fi
