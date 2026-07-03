@@ -57,20 +57,50 @@ GRANT_SCHEMA_EXAMPLE = {
 
 def call_llm(text: str, source_url: str) -> list[dict]:
     """
-    Отправляет текст в LLM, возвращает список грантов (сырой JSON от модели).
+    Отправляет текст на нормализацию.
+    По умолчанию — через OpenClaw agent CLI (не нужен отдельный API-ключ).
+    Fallback — прямой вызов Anthropic/OpenAI если LLM_API_KEY задан.
     """
-    provider = os.environ.get("LLM_PROVIDER", "anthropic")
-    model = os.environ.get("LLM_MODEL", "claude-haiku-4-5")
     api_key = os.environ.get("LLM_API_KEY", "")
-
     user_msg = f"URL источника: {source_url}\n\n---\n\n{text[:12000]}"
 
-    if provider == "anthropic":
-        return _call_anthropic(api_key, model, user_msg)
-    elif provider == "openai":
-        return _call_openai(api_key, model, user_msg)
+    if api_key:
+        # Прямой вызов если ключ есть
+        provider = os.environ.get("LLM_PROVIDER", "anthropic")
+        model = os.environ.get("LLM_MODEL", "claude-haiku-4-5")
+        if provider == "anthropic":
+            return _call_anthropic(api_key, model, user_msg)
+        else:
+            return _call_openai(api_key, model, user_msg)
     else:
-        raise ValueError(f"Unknown LLM provider: {provider}")
+        # Через OpenClaw agent — никакого отдельного ключа не нужно
+        return _call_openclaw(user_msg)
+
+
+def _call_openclaw(user_msg: str) -> list[dict]:
+    """
+    Вызывает openclaw agent CLI, получает JSON в ответе.
+    OpenClaw сам использует настроенного агента с его моделью.
+    """
+    import subprocess
+    import shlex
+
+    full_prompt = SYSTEM_PROMPT + "\n\n" + user_msg
+
+    openclaw_bin = os.environ.get("OPENCLAW_BIN", "openclaw")
+
+    result = subprocess.run(
+        [openclaw_bin, "agent", "--message", full_prompt, "--no-stream"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    if result.returncode != 0:
+        raise RuntimeError(f"openclaw agent error: {result.stderr[:500]}")
+
+    raw = result.stdout.strip()
+    return _parse_json(raw)
 
 
 def _call_anthropic(api_key: str, model: str, user_msg: str) -> list[dict]:
